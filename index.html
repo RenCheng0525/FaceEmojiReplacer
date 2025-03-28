@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人臉 Emoji 替換工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.0.1/dist/face-api.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --primary-dark: #2980b9;
+            --success-color: #2ecc71;
+            --success-dark: #27ae60;
+            --warning-color: #e67e22;
+            --warning-dark: #d35400;
+            --danger-color: #e74c3c;
+            --danger-dark: #c0392b;
+            --background: #2c2c2c;
+            --sidebar-bg: rgba(20, 20, 20, 0.95);
+            --header-bg: rgba(20, 20, 20, 0.95);
+            --card-bg: rgba(30, 30, 30, 0.95);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            background-color: var(--header-bg);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: var(--shadow);
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .app-header h1 {
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+
+        .language-toggle {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .language-btn {
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .language-btn.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 342px;
+            flex: 0 0 342px;
+            /* This prevents the sidebar from shrinking or growing */
+            background-color: var(--sidebar-bg);
+            box-shadow: var(--shadow);
+            z-index: 50;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1.5rem;
+            border-right: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            height: calc(100vh - 60px);
+            position: relative;
+        }
+
+        .editor-area {
+            flex-grow: 1;
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+            margin-left: 0;
+        }
+
+        .filter-bar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            z-index: 60;
+            backdrop-filter: blur(10px);
+            max-width: 320px;
+        }
+
+        .filter-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-title i {
+            opacity: 0.7;
+        }
+
+        .filter-group {
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .filter-group:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .filter-picker {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+
+        .filter-option {
+            padding: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .filter-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .filter-option.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .filter-option i {
+            font-size: 16px;
+            opacity: 0.7;
+        }
+
+        .filter-slider {
+            margin-top: 10px;
+            padding: 0 5px;
+        }
+
+        .filter-slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .filter-slider-input {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            border-radius: 3px;
+        }
+
+        .filter-slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+        }
+
+        .filter-slider-input::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 1.25rem;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            padding-bottom: 0.75rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title i {
+            opacity: 0.7;
+        }
+
+        .file-upload {
+            width: 100%;
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .file-upload-input {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-upload-btn {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-upload-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .history-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+
+        .history-btn {
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .history-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            color: white;
+            text-align: center;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+        }
+
+        .btn-success:hover {
+            background-color: var(--success-dark);
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+        }
+
+        .btn-warning:hover {
+            background-color: var(--warning-dark);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+        }
+
+        .btn-danger:hover {
+            background-color: var(--danger-dark);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-display {
+            padding: 0.75rem;
+            background-color: rgba(52, 152, 219, 0.1);
+            border-left: 4px solid var(--primary-color);
+            border-radius: 4px;
+            font-size: 0.875rem;
+            margin: 0.75rem 0;
+            color: var(--text-secondary);
+        }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.5rem;
+            max-height: 250px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0.75rem;
+            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .emoji-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.25rem;
+            width: 100%;
+            height: 40px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .emoji-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+
+        .emoji-clear {
+            background-color: rgba(231, 76, 60, 0.2);
+            color: var(--danger-color);
+            font-weight: bold;
+        }
+
+        .emoji-clear:hover {
+            background-color: rgba(231, 76, 60, 0.3);
+        }
+
+        .canvas-container {
+            max-width: 100%;
+            background-color: rgba(40, 40, 40, 0.5);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            display: inline-block;
+            position: relative;
+            border: 1px solid var(--border-color);
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        .loading-text {
+            font-size: 1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #imageCanvas {
+            max-width: 100%;
+            display: none;
+            border-radius: 4px;
+        }
+
+        .hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 24px;
+            border-radius: 50px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+        }
+
+        .hint.show {
+            opacity: 1;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 50vh;
+            }
+
+            .editor-area {
+                padding: 1rem;
+            }
+
+            .filter-bar {
+                position: static;
+                margin-bottom: 1rem;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1 id="app-title">人臉 Emoji 替換工具</h1>
+            <div class="language-toggle">
+                <button class="language-btn active" data-lang="zh-TW">繁中</button>
+                <button class="language-btn" data-lang="en">English</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Left sidebar panel -->
+            <aside class="sidebar">
+                <!-- Upload section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-upload"></i>
+                            <span class="text-upload">上傳圖片</span>
+                        </div>
+                    </div>
+                    <div class="file-upload">
+                        <input type="file" id="imageUpload" accept="image/*" class="file-upload-input">
+                        <label for="imageUpload" class="file-upload-btn">
+                            <span class="text-upload-btn">選擇圖片或拖放到此處</span>
+                        </label>
+                    </div>
+                    <div class="history-controls">
+                        <button id="undoBtn" class="history-btn" disabled>
+                            <i class="fas fa-undo"></i> <span class="text-undo">復原</span>
+                        </button>
+                        <button id="redoBtn" class="history-btn" disabled>
+                            <i class="fas fa-redo"></i> <span class="text-redo">重做</span>
+                        </button>
+                    </div>
+                    <div class="btn-group">
+                        <button id="previewBtn" class="btn btn-primary" disabled>
+                            <span class="text-preview">預覽模式</span>
+                        </button>
+                        <button id="resetBtn" class="btn btn-warning" disabled>
+                            <span class="text-reset">重設</span>
+                        </button>
+                        <button id="downloadBtn" class="btn btn-success" disabled>
+                            <span class="text-download">下載</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Emoji section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-smile"></i>
+                            <span class="text-emoji">選擇表情</span>
+                        </div>
+                    </div>
+                    <div class="emoji-grid" id="emojiGrid">
+                        <div class="emoji-item emoji-clear" title="Clear Emoji">❌</div>
+                        <!-- Emojis will be added dynamically -->
+                    </div>
+                </div>
+
+                <!-- Status display -->
+                <div class="status-display" id="status">
+                    <span class="text-status">請上傳圖片開始使用</span>
+                </div>
+            </aside>
+
+            <!-- Main editing area -->
+            <main class="editor-area">
+                <div class="canvas-container">
+                    <canvas id="imageCanvas"></canvas>
+                    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text" id="loadingText">
+                            <span class="text-loading">處理中...</span>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Filter bar (moved to right side) -->
+            <div class="filter-bar">
+                <div class="filter-title">
+                    <i class="fas fa-sliders-h"></i>
+                    <span class="text-filter">照片濾鏡</span>
+                </div>
+
+                <div class="filter-group">
+                    <div class="filter-picker">
+                        <button class="filter-option active" data-filter="normal">
+                            <i class="fas fa-image"></i> <span class="text-filter-normal">原始</span>
+                        </button>
+                        <button class="filter-option" data-filter="sepia">
+                            <i class="fas fa-sun"></i> <span class="text-filter-sepia">復古</span>
+                        </button>
+                        <button class="filter-option" data-filter="grayscale">
+                            <i class="fas fa-adjust"></i> <span class="text-filter-grayscale">黑白</span>
+                        </button>
+                        <button class="filter-option" data-filter="saturate">
+                            <i class="fas fa-palette"></i> <span class="text-filter-saturate">飽和</span>
+                        </button>
+                        <button class="filter-option" data-filter="blur">
+                            <i class="fas fa-cloud"></i> <span class="text-filter-blur">模糊</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter sliders for adjustment -->
+                <div class="filter-group" id="filterSliders">
+                    <!-- Sliders will be dynamically inserted based on selected filter -->
+                    <div class="filter-slider" id="normal-slider" style="display: none;">
+                        <!-- No sliders for normal -->
+                    </div>
+
+                    <div class="filter-slider" id="sepia-slider" style="display: none;">
+                        <div class="filter-slider-label">
+                            <span class="text-filter-sepia-intensity">強度</span>
+                            <span class="value">0.7</span>
+                        </div>
+                        <input type="range" min="0" max="1" step="0.1" value="0.7" class="filter-slider-input"
+                            id="sepia-intensity">
+                    </div>
+
+                    <div class="filter-slider" id="grayscale-slider" style="display: none;">
+                        <div class="filter-slider-label">
+                            <span class="text-filter-grayscale-intensity">強度</span>
+                            <span class="value">1.0</span>
+                        </div>
+                        <input type="range" min="0" max="1" step="0.1" value="1.0" class="filter-slider-input"
+                            id="grayscale-intensity">
+                    </div>
+
+                    <div class="filter-slider" id="saturate-slider" style="display: none;">
+                        <div class="filter-slider-label">
+                            <span class="text-filter-saturate-intensity">強度</span>
+                            <span class="value">2.0</span>
+                        </div>
+                        <input type="range" min="0" max="3" step="0.1" value="2.0" class="filter-slider-input"
+                            id="saturate-intensity">
+                    </div>
+
+                    <div class="filter-slider" id="blur-slider" style="display: none;">
+                        <div class="filter-slider-label">
+                            <span class="text-filter-blur-radius">半徑</span>
+                            <span class="value">2px</span>
+                        </div>
+                        <input type="range" min="0" max="10" step="0.5" value="2" class="filter-slider-input"
+                            id="blur-radius">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="hint" class="hint">
+            <i class="fas fa-info-circle"></i>
+            <span class="text-hint">點擊人臉並選擇表情</span>
+        </div>
+    </div>
+
+    <script>
+        // Multilingual support
+        const translations = {
+            'zh-TW': {
+                'app-title': '人臉 Emoji 替換工具',
+                'text-upload': '上傳圖片',
+                'text-upload-btn': '選擇圖片或拖放到此處',
+                'text-preview': '預覽模式',
+                'text-reset': '重設',
+                'text-download': '下載',
+                'text-emoji': '選擇表情',
+                'text-filter': '照片濾鏡',
+                'text-filter-normal': '原始',
+                'text-filter-sepia': '復古',
+                'text-filter-grayscale': '黑白',
+                'text-filter-saturate': '飽和',
+                'text-filter-blur': '模糊',
+                'text-filter-sepia-intensity': '強度',
+                'text-filter-grayscale-intensity': '強度',
+                'text-filter-saturate-intensity': '強度',
+                'text-filter-blur-radius': '半徑',
+                'text-undo': '復原',
+                'text-redo': '重做',
+                'text-status': '請上傳圖片開始使用',
+                'text-loading': '處理中...',
+                'text-hint': '點擊人臉並選擇表情',
+                'preview-mode': '預覽模式',
+                'edit-mode': '編輯模式',
+                'preview-mode-on': '預覽模式：可以看到最終效果',
+                'edit-mode-on': '編輯模式：可以繼續編輯人臉',
+                'face-selected': '已選擇第 {0} 個人臉，請從表情列表選擇表情',
+                'click-face': '請點擊一個人臉區域',
+                'image-loaded': '圖片已載入，準備開始偵測人臉',
+                'detecting-faces': '正在偵測人臉...',
+                'no-faces': '未偵測到人臉，請嘗試其他圖片',
+                'faces-detected': '偵測到 {0} 個人臉，請點擊人臉並選擇表情',
+                'face-detection-error': '人臉偵測出錯，請重試',
+                'model-loaded': '人臉偵測模型已載入，請上傳圖片',
+                'model-error': '載入人臉偵測模型出錯，請重新整理頁面',
+                'image-downloaded': '圖片已下載',
+                'download-error': '無法下載圖片，請檢查瀏覽器設定',
+                'redetecting-faces': '正在重新偵測人臉...',
+                'action-undone': '已復原上一步操作',
+                'action-redone': '已重做上一步操作',
+                'no-more-undo': '沒有更多可復原的操作',
+                'no-more-redo': '沒有更多可重做的操作',
+                'filter-applied': '已套用 {0} 濾鏡',
+                'filter-adjusted': '已調整 {0} 濾鏡參數'
+            },
+            'en': {
+                'app-title': 'Face Emoji Replacement Tool',
+                'text-upload': 'Upload Image',
+                'text-upload-btn': 'Choose image or drag and drop',
+                'text-preview': 'Preview Mode',
+                'text-reset': 'Reset',
+                'text-download': 'Download',
+                'text-emoji': 'Select Emoji',
+                'text-filter': 'Photo Filters',
+                'text-filter-normal': 'Normal',
+                'text-filter-sepia': 'Sepia',
+                'text-filter-grayscale': 'Grayscale',
+                'text-filter-saturate': 'Saturate',
+                'text-filter-blur': 'Blur',
+                'text-filter-sepia-intensity': 'Intensity',
+                'text-filter-grayscale-intensity': 'Intensity',
+                'text-filter-saturate-intensity': 'Intensity',
+                'text-filter-blur-radius': 'Radius',
+                'text-undo': 'Undo',
+                'text-redo': 'Redo',
+                'text-status': 'Please upload an image to start',
+                'text-loading': 'Processing...',
+                'text-hint': 'Click a face and select an emoji',
+                'preview-mode': 'Preview Mode',
+                'edit-mode': 'Edit Mode',
+                'preview-mode-on': 'Preview Mode: View the final result',
+                'edit-mode-on': 'Edit Mode: Continue editing faces',
+                'face-selected': 'Face {0} selected, please choose an emoji',
+                'click-face': 'Please click on a face area',
+                'image-loaded': 'Image loaded, preparing to detect faces',
+                'detecting-faces': 'Detecting faces...',
+                'no-faces': 'No faces detected, please try another image',
+                'faces-detected': '{0} faces detected, click on a face and select an emoji',
+                'face-detection-error': 'Face detection error, please try again',
+                'model-loaded': 'Face detection model loaded, please upload an image',
+                'model-error': 'Error loading face detection model, please refresh the page',
+                'image-downloaded': 'Image downloaded',
+                'download-error': 'Cannot download image, please check browser settings',
+                'redetecting-faces': 'Re-detecting faces...',
+                'action-undone': 'Action undone',
+                'action-redone': 'Action redone',
+                'no-more-undo': 'Nothing to undo',
+                'no-more-redo': 'Nothing to redo',
+                'filter-applied': '{0} filter applied',
+                'filter-adjusted': '{0} filter parameters adjusted'
+            }
+        };
+
+        let currentLang = 'zh-TW';
+
+        // Global variables
+        let currentImage = null;
+        let faceRegions = [];
+        let selectedFaceIndex = -1;
+        let selectedEmoji = null;
+        let transparency = 0.6; // 40% transparency (0.6 opacity)
+        let previewMode = false; // Preview mode flag
+        let hintTimeout = null;
+        let currentFilter = 'normal';
+
+        // Filter parameters
+        let filterParams = {
+            normal: {},
+            sepia: { intensity: 0.7 },
+            grayscale: { intensity: 1.0 },
+            saturate: { intensity: 2.0 },
+            blur: { radius: 2 }
+        };
+
+        // History for undo/redo
+        const MAX_HISTORY = 20;
+        let history = [];
+        let historyIndex = -1;
+
+        // DOM elements
+        const imageUpload = document.getElementById('imageUpload');
+        const previewBtn = document.getElementById('previewBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        const statusDiv = document.getElementById('status');
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        const emojiGrid = document.getElementById('emojiGrid');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const hint = document.getElementById('hint');
+        const filterSliders = document.getElementById('filterSliders');
+
+        // Language switching function
+        function setLanguage(lang) {
+            currentLang = lang;
+
+            // Set all text elements
+            document.getElementById('app-title').textContent = translations[lang]['app-title'];
+
+            document.querySelectorAll('[class^="text-"]').forEach(element => {
+                const key = element.className;
+                if (translations[lang][key]) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+
+            // Update button text
+            if (previewMode) {
+                previewBtn.textContent = translations[lang]['edit-mode'];
+            } else {
+                previewBtn.textContent = translations[lang]['preview-mode'];
+            }
+
+            // Update status text
+            updateStatus(statusDiv.textContent);
+        }
+
+        // Language button events
+        document.querySelectorAll('.language-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelector('.language-btn.active').classList.remove('active');
+                btn.classList.add('active');
+                setLanguage(btn.dataset.lang);
+            });
+        });
+
+        function getText(key, ...args) {
+            let text = translations[currentLang][key] || key;
+            args.forEach((arg, i) => {
+                text = text.replace(`{${i}}`, arg);
+            });
+            return text;
+        }
+
+        function updateStatus(statusKey, ...args) {
+            const key = Object.keys(translations[currentLang]).find(k => translations[currentLang][k] === statusKey);
+            if (key) {
+                statusDiv.textContent = getText(key, ...args);
+            } else {
+                statusDiv.textContent = statusKey;
+            }
+        }
+
+        // Hint function
+        function showHint(textKey) {
+            if (hintTimeout) clearTimeout(hintTimeout);
+            document.querySelector('.text-hint').textContent = getText(textKey);
+            hint.classList.add('show');
+            hintTimeout = setTimeout(() => hint.classList.remove('show'), 3000);
+        }
+
+        // Common face emojis
+        const faceEmojis = [
+            // Basic face expressions
+            '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊',
+            '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪',
+            '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏',
+            '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '🥱', '😷', '🤒',
+            '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎',
+            '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦',
+            '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩',
+            '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩',
+
+            // Fun additions
+            '🥸', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '😺', '😸',
+            // Animal faces
+            '🐵', '🐶', '🐺', '🦊', '🐱', '🦁', '🐯', '🐴', '🦄', '🐮',
+            // Special effects
+            '👁️', '👀', '👁️‍🗨️', '💫', '💥', '💢', '💦', '💨', '🔥', '✨', '💩',
+            // Interactive expressions
+            '🫠', '🫣', '🫡', '🫢', '🫥', '🌝', '🌚', '🌞', '🌜', '🌛',
+            // Creative overlays
+            '🍕', '🍩', '🎭', '🎪', '🎮', '🎯', '🎨', '📸', '🔍', '💯'
+        ];
+
+        // Initialize Face-API model
+        async function initFaceAPI() {
+            try {
+                await faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.0.1/model/');
+                updateStatus(getText('model-loaded'));
+            } catch (error) {
+                console.error('Error loading face detection model:', error);
+                updateStatus(getText('model-error'));
+            }
+        }
+
+        // Expand face region for 120% coverage
+        function expandFaceRegion(box, canvasWidth, canvasHeight) {
+            const expandX = box.width * 0.2;
+            const expandY = box.height * 0.2;
+
+            const x = Math.max(0, box.x - expandX / 2);
+            const y = Math.max(0, box.y - expandY / 2);
+            const width = Math.min(canvasWidth - x, box.width + expandX);
+            const height = Math.min(canvasHeight - y, box.height + expandY);
+
+            return { x, y, width, height };
+        }
+
+        // Initialize emoji toolbar
+        function initEmojiToolbar() {
+            // Add clear emoji function
+            const clearEmojiBtn = document.querySelector('.emoji-clear');
+            clearEmojiBtn.addEventListener('click', () => {
+                selectedEmoji = null;
+
+                if (selectedFaceIndex !== -1) {
+                    addToHistory();
+                    applyEmojiToFace(selectedFaceIndex, null);
+                    redrawImage();
+                }
+            });
+
+            // Add emojis
+            faceEmojis.forEach(emoji => {
+                const emojiElement = document.createElement('div');
+                emojiElement.classList.add('emoji-item');
+                emojiElement.textContent = emoji;
+                emojiElement.addEventListener('click', () => {
+                    selectedEmoji = emoji;
+
+                    if (selectedFaceIndex !== -1) {
+                        addToHistory();
+                        applyEmojiToFace(selectedFaceIndex, emoji);
+                        redrawImage();
+                    }
+                });
+                emojiGrid.appendChild(emojiElement);
+            });
+        }
+
+        // Initialize filter options
+        function initFilterOptions() {
+            // Setup filter selection buttons
+            document.querySelectorAll('.filter-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    document.querySelector('.filter-option.active').classList.remove('active');
+                    option.classList.add('active');
+                    const filter = option.dataset.filter;
+
+                    if (currentFilter !== filter) {
+                        addToHistory();
+                        currentFilter = filter;
+
+                        // Show appropriate slider for the selected filter
+                        showFilterSlider(filter);
+
+                        redrawImage();
+                        updateStatus(getText('filter-applied', getText(`text-filter-${filter}`)));
+                    }
+                });
+            });
+
+            // Setup filter sliders event listeners
+            document.getElementById('sepia-intensity').addEventListener('input', function () {
+                filterParams.sepia.intensity = parseFloat(this.value);
+                document.querySelector('#sepia-slider .value').textContent = this.value;
+                redrawImage();
+            });
+
+            document.getElementById('grayscale-intensity').addEventListener('input', function () {
+                filterParams.grayscale.intensity = parseFloat(this.value);
+                document.querySelector('#grayscale-slider .value').textContent = this.value;
+                redrawImage();
+            });
+
+            document.getElementById('saturate-intensity').addEventListener('input', function () {
+                filterParams.saturate.intensity = parseFloat(this.value);
+                document.querySelector('#saturate-slider .value').textContent = this.value;
+                redrawImage();
+            });
+
+            document.getElementById('blur-radius').addEventListener('input', function () {
+                filterParams.blur.radius = parseFloat(this.value);
+                document.querySelector('#blur-slider .value').textContent = this.value + 'px';
+                redrawImage();
+            });
+
+            // Set initial slider values
+            document.getElementById('sepia-intensity').value = filterParams.sepia.intensity;
+            document.getElementById('grayscale-intensity').value = filterParams.grayscale.intensity;
+            document.getElementById('saturate-intensity').value = filterParams.saturate.intensity;
+            document.getElementById('blur-radius').value = filterParams.blur.radius;
+        }
+
+        // Show appropriate filter slider based on selected filter
+        function showFilterSlider(filter) {
+            // Hide all sliders first
+            document.querySelectorAll('[id$="-slider"]').forEach(slider => {
+                slider.style.display = 'none';
+            });
+
+            // Show the slider for the selected filter
+            const slider = document.getElementById(`${filter}-slider`);
+            if (slider) {
+                slider.style.display = 'block';
+            }
+        }
+
+        // Apply filter to canvas
+        function applyFilter(ctx, filter) {
+            let filterString = '';
+
+            switch (filter) {
+                case 'normal':
+                    filterString = 'none';
+                    break;
+                case 'sepia':
+                    filterString = `sepia(${filterParams.sepia.intensity})`;
+                    break;
+                case 'grayscale':
+                    filterString = `grayscale(${filterParams.grayscale.intensity})`;
+                    break;
+                case 'saturate':
+                    filterString = `saturate(${filterParams.saturate.intensity})`;
+                    break;
+                case 'blur':
+                    filterString = `blur(${filterParams.blur.radius}px)`;
+                    break;
+                default:
+                    filterString = 'none';
+            }
+
+            ctx.filter = filterString;
+        }
+
+        // History management functions
+        function addToHistory() {
+            // Save current state to history
+            const state = {
+                faceRegions: JSON.parse(JSON.stringify(faceRegions)),
+                selectedFaceIndex,
+                currentFilter,
+                filterParams: JSON.parse(JSON.stringify(filterParams))
+            };
+
+            // If we're in the middle of the history, truncate forward history
+            if (historyIndex < history.length - 1) {
+                history = history.slice(0, historyIndex + 1);
+            }
+
+            // Add new state and move pointer
+            history.push(state);
+            if (history.length > MAX_HISTORY) {
+                history.shift();
+            } else {
+                historyIndex++;
+            }
+
+            // Update UI buttons
+            updateHistoryButtons();
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                restoreState(history[historyIndex]);
+                updateStatus(getText('action-undone'));
+            } else {
+                updateStatus(getText('no-more-undo'));
+            }
+            updateHistoryButtons();
+        }
+
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                restoreState(history[historyIndex]);
+                updateStatus(getText('action-redone'));
+            } else {
+                updateStatus(getText('no-more-redo'));
+            }
+            updateHistoryButtons();
+        }
+
+        function restoreState(state) {
+            faceRegions = JSON.parse(JSON.stringify(state.faceRegions));
+            selectedFaceIndex = state.selectedFaceIndex;
+
+            // Update filter UI
+            if (document.querySelector('.filter-option.active')) {
+                document.querySelector('.filter-option.active').classList.remove('active');
+            }
+
+            const newFilterOption = document.querySelector(`.filter-option[data-filter="${state.currentFilter}"]`);
+            if (newFilterOption) {
+                newFilterOption.classList.add('active');
+            }
+
+            currentFilter = state.currentFilter;
+            filterParams = JSON.parse(JSON.stringify(state.filterParams));
+
+            // Update slider values
+            updateSliderValues();
+
+            // Show the appropriate slider
+            showFilterSlider(currentFilter);
+
+            redrawImage();
+        }
+
+        function updateSliderValues() {
+            // Update slider values based on current filter parameters
+            const sepiaSlider = document.getElementById('sepia-intensity');
+            if (sepiaSlider) {
+                sepiaSlider.value = filterParams.sepia.intensity;
+                document.querySelector('#sepia-slider .value').textContent = filterParams.sepia.intensity;
+            }
+
+            const grayscaleSlider = document.getElementById('grayscale-intensity');
+            if (grayscaleSlider) {
+                grayscaleSlider.value = filterParams.grayscale.intensity;
+                document.querySelector('#grayscale-slider .value').textContent = filterParams.grayscale.intensity;
+            }
+
+            const saturateSlider = document.getElementById('saturate-intensity');
+            if (saturateSlider) {
+                saturateSlider.value = filterParams.saturate.intensity;
+                document.querySelector('#saturate-slider .value').textContent = filterParams.saturate.intensity;
+            }
+
+            const blurSlider = document.getElementById('blur-radius');
+            if (blurSlider) {
+                blurSlider.value = filterParams.blur.radius;
+                document.querySelector('#blur-slider .value').textContent = filterParams.blur.radius + 'px';
+            }
+        }
+
+        function updateHistoryButtons() {
+            undoBtn.disabled = historyIndex <= 0;
+            redoBtn.disabled = historyIndex >= history.length - 1;
+        }
+
+        // Handle image upload
+        imageUpload.addEventListener('change', async function (e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const url = URL.createObjectURL(file);
+
+                updateStatus(getText('text-status'));
+
+                const img = new Image();
+                img.onload = async function () {
+                    // Set canvas size to match uploaded image
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+
+                    // Display image
+                    ctx.drawImage(img, 0, 0);
+                    canvas.style.display = 'block';
+
+                    // Save current image
+                    currentImage = img;
+
+                    // Clear previous data
+                    faceRegions = [];
+                    selectedFaceIndex = -1;
+                    selectedEmoji = null;
+
+                    // Reset filter parameters
+                    filterParams = {
+                        normal: {},
+                        sepia: { intensity: 0.7 },
+                        grayscale: { intensity: 1.0 },
+                        saturate: { intensity: 2.0 },
+                        blur: { radius: 2 }
+                    };
+
+                    // Reset history
+                    history = [];
+                    historyIndex = -1;
+                    updateHistoryButtons();
+
+                    // Make sure filter is reset to normal at first
+                    currentFilter = 'normal';
+                    const activeFilterOption = document.querySelector('.filter-option.active');
+                    if (activeFilterOption) {
+                        activeFilterOption.classList.remove('active');
+                    }
+                    const normalFilterOption = document.querySelector('.filter-option[data-filter="normal"]');
+                    if (normalFilterOption) {
+                        normalFilterOption.classList.add('active');
+                    }
+
+                    // Hide all sliders and show only the appropriate one
+                    showFilterSlider(currentFilter);
+
+                    // Enable buttons
+                    previewBtn.disabled = false;
+                    resetBtn.disabled = false;
+
+                    // Show loading complete message
+                    updateStatus(getText('image-loaded'));
+
+                    // Short delay to let user see the image
+                    setTimeout(async () => {
+                        // Show face detection UI
+                        loadingOverlay.style.display = 'flex';
+                        loadingText.querySelector('.text-loading').textContent = getText('detecting-faces');
+
+                        try {
+                            // Detect faces
+                            const detections = await faceapi.detectAllFaces(canvas);
+
+                            // Hide loading UI
+                            loadingOverlay.style.display = 'none';
+
+                            if (detections.length === 0) {
+                                updateStatus(getText('no-faces'));
+                                return;
+                            }
+
+                            // Save detected face regions
+                            faceRegions = detections.map(det => {
+                                const box = det.box;
+                                // Expand detected face region to 120%
+                                const expandedBox = expandFaceRegion(box, canvas.width, canvas.height);
+                                return {
+                                    x: expandedBox.x,
+                                    y: expandedBox.y,
+                                    width: expandedBox.width,
+                                    height: expandedBox.height,
+                                    emoji: null,  // No emoji selected yet
+                                    originalData: ctx.getImageData(expandedBox.x, expandedBox.y, expandedBox.width, expandedBox.height)
+                                };
+                            });
+
+                            // Add initial state to history
+                            addToHistory();
+
+                            // Draw semi-transparent overlay
+                            redrawImage();
+
+                            updateStatus(getText('faces-detected', detections.length));
+                            showHint('text-hint');
+                            downloadBtn.disabled = false;
+
+                            // Add click event to canvas
+                            canvas.addEventListener('click', handleCanvasClick);
+                        } catch (error) {
+                            console.error('Face detection error:', error);
+                            loadingOverlay.style.display = 'none';
+                            updateStatus(getText('face-detection-error'));
+                        }
+                    }, 800); // 800ms delay to let user see the image
+                };
+                img.src = url;
+            }
+        });
+
+        // Drag and drop functionality
+        const fileUploadBtn = document.querySelector('.file-upload-btn');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            fileUploadBtn.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            fileUploadBtn.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            fileUploadBtn.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() {
+            fileUploadBtn.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+            fileUploadBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+        }
+
+        function unhighlight() {
+            fileUploadBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+            fileUploadBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.02)';
+        }
+
+        fileUploadBtn.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+
+            if (files.length > 0 && files[0].type.match('image.*')) {
+                imageUpload.files = files;
+                // Manually trigger change event
+                const event = new Event('change');
+                imageUpload.dispatchEvent(event);
+            }
+        }
+
+        // Preview mode toggle
+        previewBtn.addEventListener('click', function () {
+            if (!currentImage || faceRegions.length === 0) return;
+
+            previewMode = !previewMode;
+
+            if (previewMode) {
+                previewBtn.textContent = getText('edit-mode');
+                updateStatus(getText('preview-mode-on'));
+            } else {
+                previewBtn.textContent = getText('preview-mode');
+                updateStatus(getText('edit-mode-on'));
+            }
+
+            redrawImage();
+        });
+
+        // Handle canvas click event
+        function handleCanvasClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            // Find clicked face
+            let clickedFaceIndex = -1;
+            for (let i = 0; i < faceRegions.length; i++) {
+                const face = faceRegions[i];
+                if (
+                    x >= face.x && x <= face.x + face.width &&
+                    y >= face.y && y <= face.y + face.height
+                ) {
+                    clickedFaceIndex = i;
+                    break;
+                }
+            }
+
+            if (clickedFaceIndex !== -1) {
+                if (selectedFaceIndex !== clickedFaceIndex) {
+                    selectedFaceIndex = clickedFaceIndex;
+                    updateStatus(getText('face-selected', clickedFaceIndex + 1));
+                }
+
+                // Redraw image to show selected face
+                redrawImage();
+            } else {
+                selectedFaceIndex = -1;
+                updateStatus(getText('click-face'));
+                redrawImage();
+            }
+        }
+
+        // Redraw image and all overlays
+        function redrawImage() {
+            // Clear canvas and draw original image
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Apply selected filter to the base image
+            applyFilter(ctx, currentFilter);
+            ctx.drawImage(currentImage, 0, 0);
+
+            // Reset filter for drawing overlays and emojis
+            ctx.filter = 'none';
+
+            // Draw all face overlays and emojis
+            faceRegions.forEach((face, index) => {
+                // Only draw semi-transparent overlay in edit mode
+                if (!previewMode) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${transparency})`;
+                    ctx.fillRect(face.x, face.y, face.width, face.height);
+                }
+
+                // If this face has a selected emoji, draw it (ensure emoji itself is opaque)
+                if (face.emoji) {
+                    // Calculate appropriate emoji size, about 80% of the overlay area
+                    const fontSize = Math.min(face.width, face.height) * 0.8;
+
+                    // Use bold font weight to ensure emoji is completely opaque
+                    ctx.font = `bold ${fontSize}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    // Draw emoji, ensure complete opacity
+                    ctx.fillStyle = '#000000'; // Set to black to ensure color saturation
+
+                    // Draw the same emoji multiple times to increase opacity (centered in overlay area)
+                    for (let i = 0; i < 3; i++) {
+                        ctx.fillText(
+                            face.emoji,
+                            face.x + face.width / 2,  // Horizontally centered
+                            face.y + face.height / 2  // Vertically centered
+                        );
+                    }
+                }
+
+                // In edit mode, if this is the selected face, draw border
+                if (!previewMode && index === selectedFaceIndex) {
+                    ctx.strokeStyle = '#FF0000';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(face.x, face.y, face.width, face.height);
+                }
+            });
+        }
+
+        // Apply emoji to specified face
+        function applyEmojiToFace(faceIndex, emoji) {
+            if (faceIndex >= 0 && faceIndex < faceRegions.length) {
+                faceRegions[faceIndex].emoji = emoji;
+            }
+        }
+
+        // Download processed image
+        downloadBtn.addEventListener('click', function () {
+            if (!canvas.toDataURL) {
+                updateStatus(getText('download-error'));
+                return;
+            }
+
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = 'emoji_face.png';
+            a.click();
+
+            updateStatus(getText('image-downloaded'));
+        });
+
+        // Reset and re-detect
+        resetBtn.addEventListener('click', async function () {
+            if (currentImage) {
+                // Clear canvas and redraw original image
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(currentImage, 0, 0);
+
+                // Clear face region data
+                faceRegions = [];
+                selectedFaceIndex = -1;
+                selectedEmoji = null;
+
+                // Reset filter parameters
+                filterParams = {
+                    normal: {},
+                    sepia: { intensity: 0.7 },
+                    grayscale: { intensity: 1.0 },
+                    saturate: { intensity: 2.0 },
+                    blur: { radius: 2 }
+                };
+
+                // Reset history
+                history = [];
+                historyIndex = -1;
+                updateHistoryButtons();
+
+                // Reset filter
+                currentFilter = 'normal';
+                const activeFilterOption = document.querySelector('.filter-option.active');
+                if (activeFilterOption) {
+                    activeFilterOption.classList.remove('active');
+                }
+                const normalFilterOption = document.querySelector('.filter-option[data-filter="normal"]');
+                if (normalFilterOption) {
+                    normalFilterOption.classList.add('active');
+                }
+
+                // Update slider values
+                updateSliderValues();
+
+                // Show appropriate slider
+                showFilterSlider(currentFilter);
+
+                // Remove canvas click event
+                canvas.removeEventListener('click', handleCanvasClick);
+
+                // Turn off preview mode
+                previewMode = false;
+                previewBtn.textContent = getText('preview-mode');
+
+                // Show re-detecting UI
+                loadingOverlay.style.display = 'flex';
+                loadingText.querySelector('.text-loading').textContent = getText('redetecting-faces');
+                updateStatus(getText('redetecting-faces'));
+
+                try {
+                    // Re-detect faces
+                    const detections = await faceapi.detectAllFaces(canvas);
+
+                    // Hide loading UI
+                    loadingOverlay.style.display = 'none';
+
+                    if (detections.length === 0) {
+                        updateStatus(getText('no-faces'));
+                        return;
+                    }
+
+                    // Save detected face regions
+                    faceRegions = detections.map(det => {
+                        const box = det.box;
+                        // Expand detected face region to 120%
+                        const expandedBox = expandFaceRegion(box, canvas.width, canvas.height);
+                        return {
+                            x: expandedBox.x,
+                            y: expandedBox.y,
+                            width: expandedBox.width,
+                            height: expandedBox.height,
+                            emoji: null,  // No emoji selected yet
+                            originalData: ctx.getImageData(expandedBox.x, expandedBox.y, expandedBox.width, expandedBox.height)
+                        };
+                    });
+
+                    // Add initial state to history
+                    addToHistory();
+
+                    // Draw semi-transparent overlay
+                    redrawImage();
+
+                    updateStatus(getText('faces-detected', detections.length));
+                    previewBtn.disabled = false;
+                    downloadBtn.disabled = false;
+
+                    // Add click event to canvas
+                    canvas.addEventListener('click', handleCanvasClick);
+                } catch (error) {
+                    console.error('Face detection error:', error);
+                    loadingOverlay.style.display = 'none';
+                    updateStatus(getText('face-detection-error'));
+                }
+            }
+        });
+
+        // Undo/Redo buttons
+        undoBtn.addEventListener('click', undo);
+        redoBtn.addEventListener('click', redo);
+
+        // Initialize app
+        initFaceAPI().catch(error => {
+            console.error('Error loading face detection model:', error);
+            updateStatus(getText('model-error'));
+        });
+
+        initEmojiToolbar();
+        initFilterOptions();
+
+        // Initialize language
+        setLanguage(currentLang);
+    </script>
+</body>
+
+</html>
